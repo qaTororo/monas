@@ -34,18 +34,51 @@ monas
 
 ## 使い方
 
-```bash
-# Leaderを起動してタスクを実行
-monas leader -- "ログイン機能を実装して。フロントとバックを並列で"
+### 基本フロー
 
-# 最新ランの状態確認
+ユーザーは **Owner**（インタラクティブなClaude）に指示を出すだけで、LeaderとMemberが自律的に動きます。
+
+```bash
+# 1. 作業プロジェクトのルートでOwnerを起動
+cd ~/my-project
+claude  # Ownerセッション開始
+```
+
+```
+[ユーザー]  「ログイン機能を実装して。フロントとバックを並列で」
+
+[Owner]     要件を分析してLeaderを起動します...
+              Bashツールで実行 →
+              monas leader -- "ログイン機能の実装。..." > /dev/null 2>&1 &
+
+[Leader]    tasks.json生成 → member-frontend & member-backend 並列起動
+
+[Member×2]  Ralph Loop で実装 → <DONE> → tasks.json 更新 → 完了
+
+[ユーザー]  「進捗どう？」
+
+[Owner]     monas status を確認して報告...
+```
+
+### 進捗確認コマンド
+
+```bash
+# 最新ランの状態確認（tasks.jsonをjqで整形表示）
 monas status
 
-# Leaderのログを確認
+# Leaderのログをリアルタイムで確認
 monas logs
 
 # 特定Memberのログを確認
 monas logs frontend
+```
+
+### Ownerなしで直接起動する場合
+
+デバッグや簡易実行では直接呼び出しも可能です：
+
+```bash
+monas leader -- "README.mdに今日の日付を追記して"
 ```
 
 ## ワークスペース構成
