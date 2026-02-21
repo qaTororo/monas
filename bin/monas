@@ -1,0 +1,50 @@
+#!/bin/bash
+# bin/monas - Claude agent orchestration tool
+set -euo pipefail
+
+MONAS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMMAND="${1:-}"
+shift || true
+
+usage() {
+  echo "Usage: monas <command> [options]"
+  echo "Commands:"
+  echo "  leader -- <instruction>  Start Leader and spawn members"
+  echo "  status                   Show the latest run status"
+  echo "  logs [member_name]       Tail logs for leader or specific member"
+}
+
+case "$COMMAND" in
+  leader)
+    if [ "${1:-}" = "--" ]; then
+      shift
+      INSTRUCTION="$*"
+      bash "$MONAS_DIR/scripts/run-leader.sh" "$MONAS_DIR" "$INSTRUCTION"
+    else
+      usage
+      exit 1
+    fi
+    ;;
+  status)
+    WORKSPACE="$(pwd)/.monas/latest"
+    if [ ! -L "$WORKSPACE" ]; then
+      echo "No active workspace. Run 'monas leader -- ...' first."
+      exit 1
+    fi
+    echo "=== Run: $(readlink "$WORKSPACE" | xargs basename) ==="
+    jq . "$WORKSPACE/tasks.json"
+    ;;
+  logs)
+    WORKSPACE="$(pwd)/.monas/latest"
+    NAME="${1:-}"
+    if [ -n "$NAME" ]; then
+      tail -f "$WORKSPACE/logs/member-${NAME}.log"
+    else
+      tail -f "$WORKSPACE/logs/leader.log"
+    fi
+    ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac
