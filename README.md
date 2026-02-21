@@ -19,7 +19,6 @@ Claude エージェント3段構造（Owner / Leader / Member）をローカルC
 ```bash
 # 1. Clone
 git clone https://github.com/qaTororo/monas ~/tools/monas
-chmod +x ~/tools/monas/bin/monas ~/tools/monas/scripts/*.sh
 
 # 2. PATH追加（~/.bashrc または ~/.zshrc）
 echo 'export PATH="$PATH:$HOME/tools/monas/bin"' >> ~/.zshrc
@@ -30,6 +29,12 @@ which claude jq sed awk  # これだけあればOK
 
 # 4. 動作確認
 monas
+```
+
+## 更新
+
+```bash
+git -C ~/tools/monas pull
 ```
 
 ## 使い方
