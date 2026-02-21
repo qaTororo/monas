@@ -41,7 +41,7 @@ monas
 ```bash
 # 1. 作業プロジェクトのルートでOwnerを起動
 cd ~/my-project
-claude  # Ownerセッション開始
+monas owner  # Owner として振る舞う Claude セッションを開始
 ```
 
 ```

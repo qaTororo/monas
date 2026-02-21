@@ -9,12 +9,16 @@ shift || true
 usage() {
   echo "Usage: monas <command> [options]"
   echo "Commands:"
+  echo "  owner                    Start an interactive Claude session as Owner"
   echo "  leader -- <instruction>  Start Leader and spawn members"
   echo "  status                   Show the latest run status"
   echo "  logs [member_name]       Tail logs for leader or specific member"
 }
 
 case "$COMMAND" in
+  owner)
+    exec claude --append-system-prompt "$(cat "$MONAS_DIR/prompts/owner.md")"
+    ;;
   leader)
     if [ "${1:-}" = "--" ]; then
       shift
