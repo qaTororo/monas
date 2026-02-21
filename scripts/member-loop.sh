@@ -33,10 +33,13 @@ update_task_status() {
   local status="$1"
   local report="$2"
   if acquire_lock; then
-    trap release_lock RETURN
+    # trap EXIT でロック解放を保証（RETURN は set -e による強制終了時に実行されないため）
+    trap release_lock EXIT
     jq --arg m "$MEMBER_NAME" --arg s "$status" --arg r "$report" \
       '.[$m].status = $s | .[$m].final_report = $r' \
       "$TASKS_JSON" > "${TASKS_JSON}.tmp" && mv "${TASKS_JSON}.tmp" "$TASKS_JSON"
+    release_lock
+    trap - EXIT
   else
     log "CRITICAL: Could not update tasks.json due to lock contention."
     exit 1
@@ -46,7 +49,7 @@ update_task_status() {
 # タスク情報取得
 OBJECTIVE=$(jq -r ".\"${MEMBER_NAME}\".objective" "$TASKS_JSON")
 DOD=$(jq -r ".\"${MEMBER_NAME}\".definition_of_done[]" "$TASKS_JSON" | awk '{print NR". "$0}')
-ALLOWED_TOOLS=$(jq -r ".\"${MEMBER_NAME}\".allowed_tools | join(\",\")" "$TASKS_JSON")
+ALLOWED_TOOLS=$(jq -r ".\"${MEMBER_NAME}\".allowed_tools // [] | join(\",\")" "$TASKS_JSON")
 
 log "Starting. Objective: $OBJECTIVE"
 touch "$CONTEXT_FILE"
@@ -86,8 +89,9 @@ EOF
 
   if echo "$OUTPUT" | grep -q "<DONE>"; then
     log "DONE detected!"
-    # macOS互換: grep -P ではなく sed で抽出
-    REPORT=$(echo "$OUTPUT" | sed -n 's/.*<DONE>\(.*\)<\/DONE>.*/\1/p' || echo "Completed without summary.")
+    # macOS互換: grep -P ではなく sed で抽出（sed は不一致でも 0 を返すため変数で判定）
+    REPORT=$(echo "$OUTPUT" | sed -n 's/.*<DONE>\(.*\)<\/DONE>.*/\1/p')
+    REPORT="${REPORT:-Completed without summary.}"
     update_task_status "done" "$REPORT"
     log "tasks.json updated: done"
     exit 0
