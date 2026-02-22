@@ -46,11 +46,13 @@ RESULT_TEXT=$(jq -r '.result' "$CLAUDE_RAW" 2>> "$WORKSPACE/logs/leader.log") ||
   log "FATAL: Failed to extract .result from Claude output."
   exit 1
 }
-# コードフェンス（```json ... ``` または ``` ... ```）が含まれる場合は中身のみ抽出する
+# JSON抽出: コードフェンス・前文テキストのどちらが含まれていても最初の { 以降を取り出す
 if echo "$RESULT_TEXT" | grep -q '```'; then
+  # コードフェンスがある場合はフェンス内のみ抽出
   echo "$RESULT_TEXT" | sed -n '/^```\(json\)\?$/,/^```$/{ /^```\(json\)\?$/d; /^```$/d; p }' > "$WORKSPACE/tasks.json"
 else
-  echo "$RESULT_TEXT" > "$WORKSPACE/tasks.json"
+  # コードフェンスがない場合は最初の { が現れた行から末尾を取り出す（前文テキスト除去）
+  echo "$RESULT_TEXT" | awk 'found || /^\{/{found=1; print}' > "$WORKSPACE/tasks.json"
 fi
 
 # 生成されたJSONの構文・スキーマ検証

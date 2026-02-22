@@ -13,6 +13,7 @@ usage() {
   echo "  leader -- <instruction>  Start Leader and spawn members"
   echo "  status                   Show the latest run status"
   echo "  logs [member_name]       Tail logs for leader or specific member"
+  echo "  stream [interval]        Stream task status every N seconds (default: 3)"
 }
 
 case "$COMMAND" in
@@ -126,6 +127,24 @@ case "$COMMAND" in
       echo "=== Summary ==="
       cat "$SUMMARY_FILE"
     fi
+    ;;
+  stream)
+    INTERVAL=${1:-3}
+    WORKSPACE="$(pwd)/.monas/latest"
+    trap 'exit 0' INT
+    while true; do
+      if [ ! -L "$WORKSPACE" ]; then
+        echo "waiting for run..."
+      else
+        TASKS_JSON="$WORKSPACE/tasks.json"
+        if [ -f "$TASKS_JSON" ]; then
+          echo "time: $(date '+%H:%M:%S')"
+          jq -r 'to_entries[] | select(.key != "_thought") | "  * " + .key + ": " + .value.status' "$TASKS_JSON"
+          echo "---"
+        fi
+      fi
+      sleep "$INTERVAL"
+    done
     ;;
   logs)
     WORKSPACE="$(pwd)/.monas/latest"
