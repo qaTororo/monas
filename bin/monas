@@ -43,7 +43,65 @@ case "$COMMAND" in
       echo "Run 'monas logs' to see the leader log for details."
       exit 1
     fi
-    jq . "$WORKSPACE/tasks.json"
+
+    # タスクごとのリッチ表示
+    while IFS= read -r TASK_NAME; do
+      STATUS=$(jq -r --arg t "$TASK_NAME" '.[$t].status' "$WORKSPACE/tasks.json")
+      FINAL_REPORT=$(jq -r --arg t "$TASK_NAME" '.[$t].final_report // ""' "$WORKSPACE/tasks.json")
+      LOG_FILE="$WORKSPACE/logs/member-${TASK_NAME}.log"
+
+      # ステータスアイコン
+      case "$STATUS" in
+        in_progress) ICON="⚡" ;;
+        done)        ICON="✓" ;;
+        stuck)       ICON="⚠" ;;
+        error)       ICON="✗" ;;
+        *)           ICON="?" ;;
+      esac
+
+      # イテレーション数（ログが存在する場合のみ）
+      ITER_LABEL=""
+      if [ -f "$LOG_FILE" ]; then
+        LAST_ITER=$(grep -oE 'Iteration [0-9]+/[0-9]+' "$LOG_FILE" 2>/dev/null | tail -1 | grep -oE '[0-9]+/[0-9]+' 2>/dev/null || true)
+        [ -n "$LAST_ITER" ] && ITER_LABEL="iter $LAST_ITER"
+      fi
+
+      # ヘッダー行: [アイコン タスク名] ステータス  iter X/15
+      printf "[%s %s] %s%s\n" "$ICON" "$TASK_NAME" "$STATUS" "${ITER_LABEL:+  $ITER_LABEL}"
+
+      # in_progress / stuck: 経過時間と最後のアクション
+      if [ "$STATUS" = "in_progress" ] || [ "$STATUS" = "stuck" ]; then
+        if [ -f "$LOG_FILE" ]; then
+          # 最終タイムスタンプから経過時間を計算
+          LAST_TS=$(grep -oE '^\[[0-9]{2}:[0-9]{2}:[0-9]{2}\]' "$LOG_FILE" 2>/dev/null | tail -1 | tr -d '[]' || true)
+          if [ -n "$LAST_TS" ]; then
+            NOW_SEC=$(date '+%s')
+            LAST_SEC=$(date -d "$LAST_TS" '+%s' 2>/dev/null || true)
+            if [ -n "$LAST_SEC" ]; then
+              ELAPSED=$(( NOW_SEC - LAST_SEC ))
+              # 日付をまたいだ場合の補正
+              [ "$ELAPSED" -lt 0 ] && ELAPSED=$(( ELAPSED + 86400 ))
+              echo "  Last activity: ${ELAPSED} sec ago"
+            fi
+          fi
+          # 定型句を除いた最後の意味ある行
+          LAST_ACTION=$(grep -vE '(Output received\.|Not done yet\.)' "$LOG_FILE" 2>/dev/null | tail -1 | sed 's/^\[[0-9:]*\] \[member-[^]]*\] //' || true)
+          if [ -z "$LAST_ACTION" ]; then
+            LAST_ACTION=$(tail -1 "$LOG_FILE" 2>/dev/null | sed 's/^\[[0-9:]*\] \[member-[^]]*\] //' || true)
+          fi
+          [ -n "$LAST_ACTION" ] && echo "  → \"$LAST_ACTION\""
+        fi
+      # done: final_report を表示
+      elif [ "$STATUS" = "done" ] && [ -n "$FINAL_REPORT" ]; then
+        echo "  → \"$FINAL_REPORT\""
+      # error: ログ末尾の行を表示
+      elif [ "$STATUS" = "error" ] && [ -f "$LOG_FILE" ]; then
+        LAST_ACTION=$(tail -1 "$LOG_FILE" 2>/dev/null | sed 's/^\[[0-9:]*\] \[member-[^]]*\] //' || true)
+        [ -n "$LAST_ACTION" ] && echo "  → \"$LAST_ACTION\""
+      fi
+
+      echo ""
+    done < <(jq -r 'to_entries[] | select(.key != "_thought") | .key' "$WORKSPACE/tasks.json")
 
     # 全タスク完了かつサマリー未生成の場合、遅延生成（冪等）
     # _thoughtフィールドはタスクではないため除外する
