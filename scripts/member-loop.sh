@@ -37,13 +37,15 @@ update_task_status() {
   local status="$1"
   local report="$2"
   if acquire_lock; then
-    # trap EXIT でロック解放を保証（RETURN は set -e による強制終了時に実行されないため）
-    trap release_lock EXIT
-    jq --arg m "$MEMBER_NAME" --arg s "$status" --arg r "$report" \
+    if jq --arg m "$MEMBER_NAME" --arg s "$status" --arg r "$report" \
       '.[$m].status = $s | .[$m].final_report = $r' \
-      "$TASKS_JSON" > "${TASKS_JSON}.tmp" && mv "${TASKS_JSON}.tmp" "$TASKS_JSON"
-    release_lock
-    trap - EXIT
+      "$TASKS_JSON" > "${TASKS_JSON}.tmp" && mv "${TASKS_JSON}.tmp" "$TASKS_JSON"; then
+      release_lock
+    else
+      release_lock
+      log "CRITICAL: Failed to write tasks.json."
+      exit 1
+    fi
   else
     log "CRITICAL: Could not update tasks.json due to lock contention."
     exit 1
@@ -51,9 +53,9 @@ update_task_status() {
 }
 
 # タスク情報取得
-OBJECTIVE=$(jq -r ".\"${MEMBER_NAME}\".objective" "$TASKS_JSON")
-DOD=$(jq -r ".\"${MEMBER_NAME}\".definition_of_done[]" "$TASKS_JSON" | awk '{print NR". "$0}')
-ALLOWED_TOOLS=$(jq -r ".\"${MEMBER_NAME}\".allowed_tools // [] | join(\",\")" "$TASKS_JSON")
+OBJECTIVE=$(jq -r --arg m "$MEMBER_NAME" '.[$m].objective' "$TASKS_JSON")
+DOD=$(jq -r --arg m "$MEMBER_NAME" '.[$m].definition_of_done[]' "$TASKS_JSON" | awk '{print NR". "$0}')
+ALLOWED_TOOLS=$(jq -r --arg m "$MEMBER_NAME" '.[$m].allowed_tools // [] | join(",")' "$TASKS_JSON")
 
 log "Starting. Objective: $OBJECTIVE"
 touch "$CONTEXT_FILE"
@@ -61,7 +63,7 @@ touch "$CONTEXT_FILE"
 for i in $(seq 1 $MAX_ITER); do
   log "Iteration $i/$MAX_ITER"
 
-  STATUS=$(jq -r ".\"${MEMBER_NAME}\".status" "$TASKS_JSON")
+  STATUS=$(jq -r --arg m "$MEMBER_NAME" '.[$m].status' "$TASKS_JSON")
   [ "$STATUS" = "done" ] && { log "Already done."; exit 0; }
 
   SYSTEM_PROMPT="$(cat "$MONAS_DIR/prompts/member.md")"
@@ -95,6 +97,9 @@ EOF
     log "DONE detected!"
     # macOS互換: grep -P ではなく sed で抽出（sed は不一致でも 0 を返すため変数で判定）
     REPORT=$(echo "$OUTPUT" | sed -n 's/.*<DONE>\(.*\)<\/DONE>.*/\1/p')
+    if [ -z "$REPORT" ]; then
+      log "WARNING: <DONE> tag detected but content extraction failed (possibly multiline). Using fallback."
+    fi
     REPORT="${REPORT:-Completed without summary.}"
     update_task_status "done" "$REPORT"
     log "tasks.json updated: done"

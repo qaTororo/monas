@@ -16,6 +16,9 @@ ln -sfn "$WORKSPACE" "$PROJECT_DIR/.monas/latest"
 
 log() { echo "[$(date '+%H:%M:%S')] [leader] $1" | tee -a "$WORKSPACE/logs/leader.log"; }
 
+# shellcheck source=scripts/json_helpers.sh
+source "$MONAS_DIR/scripts/json_helpers.sh"
+
 log "Run ID: $RUNID"
 log "Instruction: $INSTRUCTION"
 
@@ -44,15 +47,22 @@ if ! jq -r '.result' "$CLAUDE_RAW" > "$WORKSPACE/tasks.json" 2>> "$WORKSPACE/log
   exit 1
 fi
 
-# 生成されたJSONの厳密なバリデーション
-if ! jq -e . "$WORKSPACE/tasks.json" >/dev/null 2>&1; then
-  log "FATAL: tasks.json is not valid JSON."
+# 生成されたJSONの構文・スキーマ検証
+if ! err=$(verify_json_syntax "$WORKSPACE/tasks.json"); then
+  log "FATAL: tasks.json is not valid JSON. $err"
   log "--- tasks.json content ---"
   cat "$WORKSPACE/tasks.json" >> "$WORKSPACE/logs/leader.log"
   log "--- end of tasks.json ---"
   exit 1
 fi
-log "tasks.json generated successfully."
+if ! err=$(verify_tasks_schema "$WORKSPACE/tasks.json"); then
+  log "FATAL: tasks.json schema is invalid. $err"
+  log "--- tasks.json content ---"
+  cat "$WORKSPACE/tasks.json" >> "$WORKSPACE/logs/leader.log"
+  log "--- end of tasks.json ---"
+  exit 1
+fi
+log "tasks.json generated and validated successfully."
 
 # Phase 2: Members 並列起動
 log "Phase 2: Spawning members..."
@@ -63,6 +73,6 @@ while IFS= read -r member; do
   else
     nohup bash "$MONAS_DIR/scripts/member-loop.sh" "$member" "$WORKSPACE" "$MONAS_DIR" "$PROJECT_DIR" > "$WORKSPACE/logs/member-${member}.log" 2>&1 & disown
   fi
-done < <(jq -r 'keys[]' "$WORKSPACE/tasks.json")
+done < <(jq -r '[keys[] | select(. != "_thought")] | .[]' "$WORKSPACE/tasks.json")
 
 log "All members spawned (stateless). Leader exiting."

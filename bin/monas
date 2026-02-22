@@ -35,15 +35,19 @@ case "$COMMAND" in
       echo "No active workspace. Run 'monas leader -- ...' first."
       exit 1
     fi
+    # shellcheck source=scripts/json_helpers.sh
+    source "$MONAS_DIR/scripts/json_helpers.sh"
     echo "=== Run: $(readlink "$WORKSPACE" | xargs basename) ==="
-    if ! jq . "$WORKSPACE/tasks.json" 2>/dev/null; then
+    if ! err=$(verify_json_syntax "$WORKSPACE/tasks.json"); then
       echo "ERROR: tasks.json is not valid JSON. Phase 1 may have failed."
       echo "Run 'monas logs' to see the leader log for details."
       exit 1
     fi
+    jq . "$WORKSPACE/tasks.json"
 
     # 全タスク完了かつサマリー未生成の場合、遅延生成（冪等）
-    ALL_DONE=$(jq '[.[] | .status] | all(. == "done" or . == "error")' "$WORKSPACE/tasks.json")
+    # _thoughtフィールドはタスクではないため除外する
+    ALL_DONE=$(jq '[to_entries[] | select(.key != "_thought") | .value.status] | all(. == "done" or . == "error")' "$WORKSPACE/tasks.json")
     SUMMARY_FILE="$WORKSPACE/summary.txt"
     if [ "$ALL_DONE" = "true" ] && [ ! -f "$SUMMARY_FILE" ]; then
       echo ""

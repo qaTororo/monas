@@ -9,15 +9,13 @@
 
 ## 決定
 
-go-taskを排除し、`bin/monas` を純粋なbashスクリプトによるコントローラーとして実装する。プロセス管理はUNIXの `&`（バックグラウンド実行）と `wait`（完了待機）で完結させる。
+go-taskを排除し、`bin/monas` を純粋なbashスクリプトによるコントローラーとして実装する。プロセス管理はUNIXの `&`（バックグラウンド実行）で完結させる。Leaderはステートレスに終了し、Memberは独立したプロセスとして動作する（詳細はADR-005参照）。
 
 ```bash
-# 並列起動
-bash member-loop.sh frontend &
-bash member-loop.sh backend &
-
-# 全完了を待機
-wait $pid1; wait $pid2
+# 並列起動（ステートレス: Leader は spawn 後に終了する）
+setsid bash member-loop.sh frontend > logs/member-frontend.log 2>&1 &
+setsid bash member-loop.sh backend  > logs/member-backend.log  2>&1 &
+# Leader は wait せずに終了。Member の完了は tasks.json の status フィールドで追跡する。
 ```
 
 ## 理由
