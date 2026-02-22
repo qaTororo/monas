@@ -37,12 +37,16 @@ update_task_status() {
   local status="$1"
   local report="$2"
   if acquire_lock; then
+    # SIGTERM/SIGINT 等の外部シグナルでも確実にロックを解放する
+    trap 'release_lock' EXIT INT TERM
     if jq --arg m "$MEMBER_NAME" --arg s "$status" --arg r "$report" \
       '.[$m].status = $s | .[$m].final_report = $r' \
       "$TASKS_JSON" > "${TASKS_JSON}.tmp" && mv "${TASKS_JSON}.tmp" "$TASKS_JSON"; then
       release_lock
+      trap - EXIT INT TERM
     else
       release_lock
+      trap - EXIT INT TERM
       log "CRITICAL: Failed to write tasks.json."
       exit 1
     fi
@@ -100,7 +104,7 @@ EOF
     if [ -z "$REPORT" ]; then
       log "WARNING: <DONE> tag detected but content extraction failed (possibly multiline). Using fallback."
     fi
-    REPORT="${REPORT:-Completed without summary.}"
+    REPORT="${REPORT:-[WARNING: fallback used] Completed without summary.}"
     update_task_status "done" "$REPORT"
     log "tasks.json updated: done"
     exit 0
