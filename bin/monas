@@ -113,15 +113,19 @@ case "$COMMAND" in
       echo "WARN: The following tasks are stuck: $STUCK_TASKS"
     fi
     SUMMARY_FILE="$WORKSPACE/summary.txt"
-    if [ "$ALL_DONE" = "true" ] && [ ! -f "$SUMMARY_FILE" ]; then
+    SUMMARY_LOCK="$WORKSPACE/summary.lock"
+    if [ "$ALL_DONE" = "true" ] && [ ! -f "$SUMMARY_FILE" ] && [ ! -f "$SUMMARY_LOCK" ]; then
+      touch "$SUMMARY_LOCK"
       echo ""
-      echo "All tasks complete. Generating summary..."
-      claude -p "全タスクが完了しました。tasks.jsonの内容を基に、達成内容を簡潔にまとめてください。" \
+      echo "All tasks complete. Generating summary in background..."
+      (claude -p "全タスクが完了しました。tasks.jsonの内容を基に、達成内容を簡潔にまとめてください。" \
         --append-system-prompt "$(cat "$MONAS_DIR/prompts/leader-summary.md")" \
-        --allowedTools "Read" < "$WORKSPACE/tasks.json" > "$SUMMARY_FILE"
+        --allowedTools "Read" < "$WORKSPACE/tasks.json" > "$SUMMARY_FILE" \
+        && rm -f "$SUMMARY_LOCK") &
+    elif [ -f "$SUMMARY_LOCK" ]; then
       echo ""
       echo "=== Summary ==="
-      cat "$SUMMARY_FILE"
+      echo "(generating...)"
     elif [ -f "$SUMMARY_FILE" ]; then
       echo ""
       echo "=== Summary ==="
