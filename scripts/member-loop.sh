@@ -64,6 +64,7 @@ ALLOWED_TOOLS=$(jq -r --arg m "$MEMBER_NAME" '.[$m].allowed_tools // [] | join("
 log "Starting. Objective: $OBJECTIVE"
 touch "$CONTEXT_FILE"
 
+PREV_HASH=''
 for i in $(seq 1 $MAX_ITER); do
   log "Iteration $i/$MAX_ITER"
 
@@ -93,6 +94,15 @@ EOF
     2>&1)
 
   log "Output received."
+
+  # スタック検知: 連続2回同一出力を検知したら stuck として early break
+  CURR_HASH=$(echo "$OUTPUT" | sha256sum | cut -d' ' -f1)
+  if [ "$CURR_HASH" = "$PREV_HASH" ]; then
+    log "STUCK: Identical output detected twice in a row. Marking as stuck."
+    update_task_status "stuck" "Stuck: identical output detected twice consecutively (iteration $i)."
+    break
+  fi
+  PREV_HASH="$CURR_HASH"
 
   # 次回イテレーションのためにコンテキストを保存
   printf "=== Iteration %s ===\n%s\n\n" "$i" "$OUTPUT" >> "$CONTEXT_FILE"

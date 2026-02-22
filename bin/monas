@@ -47,7 +47,12 @@ case "$COMMAND" in
 
     # 全タスク完了かつサマリー未生成の場合、遅延生成（冪等）
     # _thoughtフィールドはタスクではないため除外する
-    ALL_DONE=$(jq '[to_entries[] | select(.key != "_thought") | .value.status] | all(. == "done" or . == "error")' "$WORKSPACE/tasks.json")
+    ALL_DONE=$(jq '[to_entries[] | select(.key != "_thought") | .value.status] | all(. == "done" or . == "error" or . == "stuck")' "$WORKSPACE/tasks.json")
+
+    STUCK_TASKS=$(jq -r '[to_entries[] | select(.key != "_thought" and .value.status == "stuck") | .key] | join(", ")' "$WORKSPACE/tasks.json")
+    if [ -n "$STUCK_TASKS" ]; then
+      echo "WARN: The following tasks are stuck: $STUCK_TASKS"
+    fi
     SUMMARY_FILE="$WORKSPACE/summary.txt"
     if [ "$ALL_DONE" = "true" ] && [ ! -f "$SUMMARY_FILE" ]; then
       echo ""

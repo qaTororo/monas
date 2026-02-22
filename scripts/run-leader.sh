@@ -42,9 +42,15 @@ log "--- Claude raw output ---"
 cat "$CLAUDE_RAW" >> "$WORKSPACE/logs/leader.log"
 log "--- end of raw output ---"
 
-if ! jq -r '.result' "$CLAUDE_RAW" > "$WORKSPACE/tasks.json" 2>> "$WORKSPACE/logs/leader.log"; then
+RESULT_TEXT=$(jq -r '.result' "$CLAUDE_RAW" 2>> "$WORKSPACE/logs/leader.log") || {
   log "FATAL: Failed to extract .result from Claude output."
   exit 1
+}
+# コードフェンス（```json ... ``` または ``` ... ```）が含まれる場合は中身のみ抽出する
+if echo "$RESULT_TEXT" | grep -q '```'; then
+  echo "$RESULT_TEXT" | sed -n '/^```\(json\)\?$/,/^```$/{ /^```\(json\)\?$/d; /^```$/d; p }' > "$WORKSPACE/tasks.json"
+else
+  echo "$RESULT_TEXT" > "$WORKSPACE/tasks.json"
 fi
 
 # 生成されたJSONの構文・スキーマ検証

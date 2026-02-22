@@ -28,6 +28,11 @@ Erlang/OTPのアクターモデルにおける「親が子を監視し、異常�
 - 同一エラーの反復を検知した場合はループを早期 `break`
 - `tasks.json` のステータスを `stuck` や `needs_help` に変更してOwnerの介入を促す
 
+**実装済み**:
+
+- `scripts/member-loop.sh`: `sha256sum` による直前イテレーション出力のハッシュ比較を実装。連続2回一致（同一出力）を検知した場合に early `break` を実行し、`tasks.json` の当該タスクの `status` を `stuck` に更新する
+- `bin/monas`: ALL_DONE 判定に `stuck` ステータスを追加（`done` または `error` または `stuck` で全完了とみなす）。完了時に `stuck` タスクが存在する場合は警告メッセージを表示する
+
 ---
 
 ## 3. セキュリティと実行権限の制約（最小権限の原則）
