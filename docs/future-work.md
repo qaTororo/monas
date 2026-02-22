@@ -56,3 +56,8 @@ MemberへのBashツール付与は、エージェントにローカル環境の�
 - `run-leader.sh` はMemberをkickした直後に終了
 - タスクの完了確認とサマリー生成は `monas status` を叩いたタイミングで行う
 - または別の軽量な監視デーモンが `tasks.json` をポーリングする形へのリファクタリング
+
+**実装済み**:
+
+- `run-leader.sh`: `setsid`（フォールバック: `nohup + disown`）による独立セッション起動。`wait` とPhase 3（サマリー生成）を削除しLeaderをステートレス化
+- `monas status`: 全タスク完了時の遅延サマリー生成を追加。`summary.txt` に保存し冪等性を確保（何度叩いても再生成しない）

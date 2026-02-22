@@ -11,7 +11,7 @@ Claude エージェント3段構造（Owner / Leader / Member）をローカルC
 | 役割 | 動作方式 | 責務 |
 |---|---|---|
 | **Owner** | UIつきの通常Claude（インタラクティブ） | ユーザーとの唯一の窓口 |
-| **Leader** | `claude -p` バックグラウンド実行 | tasks.json生成 → Members並列起動 → 完了サマリー出力 |
+| **Leader** | `claude -p` ステートレス実行 | tasks.json生成 → Members独立起動して即終了（サマリーは `monas status` で遅延生成） |
 | **Member** | `claude -p` Ralph Loop実行 | タスク実行・`<DONE>`出力で完了通知 |
 
 ## インストール
@@ -96,6 +96,7 @@ monas leader -- "README.mdに今日の日付を追記して"
     ├── latest -> 20240222-143022/   # 最新ランへのシンボリックリンク
     └── 20240222-143022/
         ├── tasks.json               # タスク定義・進捗
+        ├── summary.txt              # 完了サマリー（monas status で自動生成・冪等）
         ├── context-frontend.txt     # Member毎のイテレーション記憶
         ├── context-backend.txt
         └── logs/
@@ -128,7 +129,7 @@ monas leader -- "README.mdに今日の日付を追記して"
 ```
 bin/monas                  # メインコントローラー（case文ルーティング）
 scripts/
-  run-leader.sh            # Leader全体フロー制御（3フェーズ）
+  run-leader.sh            # Leader全体フロー制御（Phase 1: tasks.json生成、Phase 2: Members独立起動して即終了）
   member-loop.sh           # Member Ralph Loop（コンテキスト記憶付き）
 prompts/
   leader-plan.md           # Leader Phase1: tasks.json生成プロンプト
@@ -155,3 +156,12 @@ for i in 1..MAX_ITER(15):
 ## 既知の制限（v1）
 
 - `context-{member}.txt` は全イテレーション分を蓄積するため、MAX_ITER=15の場合にLLMのコンテキストウィンドウを圧迫する可能性があります。v2でスライディングウィンドウを検討予定。
+
+## リーダーの耐障害性
+
+Leader プロセスは **ステートレス** に設計されています。
+
+- Member を `setsid`（macOS では `nohup + disown`）で **独立セッション** として起動
+- Member 起動直後に Leader プロセス自身は終了（`wait` なし）
+- Leader が途中で SIGKILL されても Member は継続実行される
+- サマリー生成は `monas status` を叩いたタイミングで遅延実行（`summary.txt` に保存、冪等）

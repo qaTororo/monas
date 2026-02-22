@@ -37,6 +37,24 @@ case "$COMMAND" in
     fi
     echo "=== Run: $(readlink "$WORKSPACE" | xargs basename) ==="
     jq . "$WORKSPACE/tasks.json"
+
+    # 全タスク完了かつサマリー未生成の場合、遅延生成（冪等）
+    ALL_DONE=$(jq '[.[] | .status] | all(. == "done" or . == "error")' "$WORKSPACE/tasks.json")
+    SUMMARY_FILE="$WORKSPACE/summary.txt"
+    if [ "$ALL_DONE" = "true" ] && [ ! -f "$SUMMARY_FILE" ]; then
+      echo ""
+      echo "All tasks complete. Generating summary..."
+      claude -p "全タスクが完了しました。tasks.jsonの内容を基に、達成内容を簡潔にまとめてください。" \
+        --append-system-prompt "$(cat "$MONAS_DIR/prompts/leader-summary.md")" \
+        --allowedTools "Read" < "$WORKSPACE/tasks.json" > "$SUMMARY_FILE"
+      echo ""
+      echo "=== Summary ==="
+      cat "$SUMMARY_FILE"
+    elif [ -f "$SUMMARY_FILE" ]; then
+      echo ""
+      echo "=== Summary ==="
+      cat "$SUMMARY_FILE"
+    fi
     ;;
   logs)
     WORKSPACE="$(pwd)/.monas/latest"

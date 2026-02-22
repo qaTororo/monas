@@ -41,26 +41,13 @@ log "tasks.json generated successfully."
 
 # Phase 2: Members 並列起動
 log "Phase 2: Spawning members..."
-declare -a PIDS=()
 while IFS= read -r member; do
   log "Spawning member: $member"
-  bash "$MONAS_DIR/scripts/member-loop.sh" \
-    "$member" "$WORKSPACE" "$MONAS_DIR" "$PROJECT_DIR" \
-    > "$WORKSPACE/logs/member-${member}.log" 2>&1 &
-  PIDS+=($!)
+  if command -v setsid >/dev/null 2>&1; then
+    setsid bash "$MONAS_DIR/scripts/member-loop.sh" "$member" "$WORKSPACE" "$MONAS_DIR" "$PROJECT_DIR" > "$WORKSPACE/logs/member-${member}.log" 2>&1 &
+  else
+    nohup bash "$MONAS_DIR/scripts/member-loop.sh" "$member" "$WORKSPACE" "$MONAS_DIR" "$PROJECT_DIR" > "$WORKSPACE/logs/member-${member}.log" 2>&1 & disown
+  fi
 done < <(jq -r 'keys[]' "$WORKSPACE/tasks.json")
 
-# 全 Member 完了を待機
-FAILED=0
-for pid in "${PIDS[@]}"; do
-  wait "$pid" || FAILED=$((FAILED + 1))
-done
-log "All members finished. Failed: $FAILED"
-
-# Phase 3: 完了サマリー出力（Ownerが受け取るstdout）
-log "Phase 3: Generating summary..."
-SUMMARY=$(claude -p "全タスクが完了しました。tasks.jsonの内容を基に、達成内容を簡潔にまとめてください。" \
-  --append-system-prompt "$(cat "$MONAS_DIR/prompts/leader-summary.md")" \
-  --allowedTools "Read" < "$WORKSPACE/tasks.json")
-echo "$SUMMARY" | tee -a "$WORKSPACE/logs/leader.log"
-log "COMPLETED: $RUNID"
+log "All members spawned (stateless). Leader exiting."
