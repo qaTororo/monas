@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# Claude Code の nested session ガードを回避する。
+# CLAUDECODE 変数が存在すると子プロセスの claude 起動がブロックされるため除去する。
+unset CLAUDECODE
+
 MEMBER_NAME="$1"
 WORKSPACE="$2"
 MONAS_DIR="$3"
