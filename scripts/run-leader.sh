@@ -21,20 +21,35 @@ log "Instruction: $INSTRUCTION"
 
 # Phase 1: tasks.json 生成
 log "Phase 1: Generating tasks.json..."
+CLAUDE_RAW="$WORKSPACE/logs/leader-phase1-raw.json"
 if ! claude -p "$INSTRUCTION" \
   --output-format json \
   --append-system-prompt "$(cat "$MONAS_DIR/prompts/leader-plan.md")" \
   --allowedTools "Read" \
   2>> "$WORKSPACE/logs/leader.log" \
-  | jq -r '.result' > "$WORKSPACE/tasks.json"; then
-  log "FATAL: Claude failed to generate output or jq failed to parse."
+  > "$CLAUDE_RAW"; then
+  log "FATAL: Claude failed to generate output."
+  log "--- Claude raw output ---"
+  cat "$CLAUDE_RAW" >> "$WORKSPACE/logs/leader.log"
+  log "--- end of raw output ---"
+  exit 1
+fi
+
+log "--- Claude raw output ---"
+cat "$CLAUDE_RAW" >> "$WORKSPACE/logs/leader.log"
+log "--- end of raw output ---"
+
+if ! jq -r '.result' "$CLAUDE_RAW" > "$WORKSPACE/tasks.json" 2>> "$WORKSPACE/logs/leader.log"; then
+  log "FATAL: Failed to extract .result from Claude output."
   exit 1
 fi
 
 # 生成されたJSONの厳密なバリデーション
 if ! jq -e . "$WORKSPACE/tasks.json" >/dev/null 2>&1; then
   log "FATAL: tasks.json is not valid JSON."
+  log "--- tasks.json content ---"
   cat "$WORKSPACE/tasks.json" >> "$WORKSPACE/logs/leader.log"
+  log "--- end of tasks.json ---"
   exit 1
 fi
 log "tasks.json generated successfully."

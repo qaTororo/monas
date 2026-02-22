@@ -36,7 +36,11 @@ case "$COMMAND" in
       exit 1
     fi
     echo "=== Run: $(readlink "$WORKSPACE" | xargs basename) ==="
-    jq . "$WORKSPACE/tasks.json"
+    if ! jq . "$WORKSPACE/tasks.json" 2>/dev/null; then
+      echo "ERROR: tasks.json is not valid JSON. Phase 1 may have failed."
+      echo "Run 'monas logs' to see the leader log for details."
+      exit 1
+    fi
 
     # 全タスク完了かつサマリー未生成の場合、遅延生成（冪等）
     ALL_DONE=$(jq '[.[] | .status] | all(. == "done" or . == "error")' "$WORKSPACE/tasks.json")
@@ -60,7 +64,17 @@ case "$COMMAND" in
     WORKSPACE="$(pwd)/.monas/latest"
     NAME="${1:-}"
     if [ -n "$NAME" ]; then
-      tail -f "$WORKSPACE/logs/member-${NAME}.log"
+      LOG_FILE="$WORKSPACE/logs/member-${NAME}.log"
+      if [ ! -f "$LOG_FILE" ]; then
+        echo "Log file not found: $LOG_FILE"
+        if grep -q "FATAL" "$WORKSPACE/logs/leader.log" 2>/dev/null; then
+          echo "Phase 1 failed. Members were not started. Check 'monas logs' for details."
+        else
+          echo "Member '$NAME' may not have been started yet."
+        fi
+        exit 1
+      fi
+      tail -f "$LOG_FILE"
     else
       tail -f "$WORKSPACE/logs/leader.log"
     fi
