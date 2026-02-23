@@ -36,5 +36,5 @@ setsid bash member-loop.sh backend  > logs/member-backend.log  2>&1 &
 
 - 依存ツール: `claude`, `jq`, `sed`, `awk`（全て標準UNIX環境に近い）
 - `bin/monas` は `case` 文によるシンプルなルーティングスクリプト
-- `scripts/run-leader.sh` がLeader全体フロー（3フェーズ）を制御
+- `scripts/run-leader.sh` がLeader全体フロー（2フェーズ: Phase 1: tasks.json生成、Phase 2: Members独立起動して即終了）を制御
 - `scripts/member-loop.sh` がMemberのRalph Loopを制御

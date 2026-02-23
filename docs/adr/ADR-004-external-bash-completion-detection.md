@@ -75,5 +75,5 @@ acquire_lock() {
 
 - `tasks.json` の更新はbashスクリプトが管理し、LLMは出力テキストのみに責任を持つ
 - サーキットブレーカー（MAX_ITER=15）で無限ループを防止
-- `context-{member}.txt` はイテレーション数に比例して肥大化する（既知の制限）
+- `context-{member}.txt` はスライディングウィンドウ（`tail -n ${CONTEXT_WINDOW_LINES:-200}`）で最新200行にトリミングされる。`CONTEXT_WINDOW_LINES` 環境変数で調整可能
 - `<DONE>` タグは1行で出力することをpromptで強制（sedの抽出を確実にするため）

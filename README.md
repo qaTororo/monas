@@ -108,6 +108,15 @@ monas logs
 
 # 特定Memberのログを確認
 monas logs frontend
+
+# ストリーミング表示（デフォルト3秒間隔でポーリング）
+monas stream
+
+# 全Runのステータスを一覧表示
+monas status --all
+
+# 全Runをポーリング表示（interval秒間隔、デフォルト3秒）
+monas stream --all [interval]
 ```
 
 ### Ownerなしで直接起動する場合
@@ -143,6 +152,7 @@ monas leader -- "README.mdに今日の日付を追記して"
 
 ```json
 {
+  "_thought": "タスク設計の意図：なぜこの分割にしたか、並列実行可能な理由、依存関係の考慮など",
   "frontend": {
     "objective": "ログインボタンのコンポーネントを修正する",
     "definition_of_done": [
@@ -184,10 +194,6 @@ for i in 1..MAX_ITER(15):
 - **排他制御**: mkdirアトミック操作（POSIX準拠、macOS互換）
 - **文字列抽出**: sed（macOS互換、grep -P不使用）
 - **完了判定**: 外部bashが`<DONE>`を検知してtasks.jsonを更新（LLMに任せない）
-
-## 既知の制限（v1）
-
-- `context-{member}.txt` は全イテレーション分を蓄積するため、MAX_ITER=15の場合にLLMのコンテキストウィンドウを圧迫する可能性があります。v2でスライディングウィンドウを検討予定。
 
 ## リーダーの耐障害性
 
