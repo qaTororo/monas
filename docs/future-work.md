@@ -14,6 +14,10 @@ Ralph Loopにおいて `context-${MEMBER}.txt` に毎回の実行結果を追記
 - **A. スライディングウィンドウ**: 直近N回分のイテレーションログのみを保持し、古いログは `tail -n` 等で破棄する（bashで容易に実装可能）
 - **B. 動的要約（TL;DR圧縮）**: ログファイルが一定サイズを超えた場合、軽量なプロンプトを用いて「これまでの実行履歴の要約」を生成し、ログを圧縮して置き換える機構を導入する
 
+**実装済み**:
+
+- `scripts/member-loop.sh`: スライディングウィンドウ（Approach A）を実装。コンテキストファイルへの追記直後に `tail -n ${CONTEXT_WINDOW_LINES:-200}` でトリミングし、古い行を破棄する。`CONTEXT_WINDOW_LINES` 環境変数で行数を調整可能（デフォルト: 200行）
+
 ---
 
 ## 2. フォールトトレランスと監視機構（スタック検知）
@@ -44,6 +48,10 @@ MemberへのBashツール付与は、エージェントにローカル環境の�
 
 - **実行環境の隔離**: Memberプロセスの作業ディレクトリをDockerコンテナ等のサンドボックス環境内にマウントして実行
 - **コマンドのホワイトリスト化**: `allowedTools` のBash制約をより細かく制御（例: `Bash(npm *)` で `npm` コマンドのみ許可）。Claude Code CLIの権限設定の最新仕様を追従し、常にLeast Privilegeを維持する
+
+**実装済み**:
+
+- `prompts/leader-plan.md`: `allowed_tools` のBash制約フォーマットを Claude Code CLIの正式仕様（`Bash(npm:*)` のようにコロン区切り）に修正。`claude --help` により `--allowedTools "Bash(git:*) Edit"` 形式が正式仕様であることを確認済み
 
 ---
 
@@ -100,3 +108,9 @@ monas V2 への適用案：
 ### monas stream（実装済み）
 
 `monas stream` コマンドにより、ペイン分割したターミナルで複数 Leader の状態を常時モニタリングできる基盤は V1 で整備済み。V2 では複数 Run を束ねた表示（`leader-1`, `leader-2` 単位での状態表示）への拡張が必要になる。現状の `latest` シムリンクは1つしか指せないため、複数 Run の列挙機構が追加課題となる。
+
+**実装済み（monas status/stream マルチ Run 対応）**:
+
+- `bin/monas status --all`: `.monas/` 内の全 Run ディレクトリ（`YYYYMMDD-HHMMSS` 形式）を列挙し、各 Run のタスクステータスを表示する
+- `bin/monas stream --all [interval]`: 全 Run のステータスを定期的にポーリング表示する。複数 Leader を並列起動した際の状態監視に利用できる
+- `--all` フラグなしは既存動作（`latest` シムリンクの Run を表示）を維持

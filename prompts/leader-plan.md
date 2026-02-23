@@ -37,5 +37,5 @@ Ownerから「何を・なぜ」というゴールを受け取り、自律的に
 - allowed_toolsはタスクの役割に必要最小限のものだけ与えること
   - 調査のみ: ["Read", "Glob", "Grep"]
   - 実装のみ: ["Read", "Glob", "Grep", "Edit"]
-  - テスト実行あり: ["Read", "Glob", "Grep", "Edit", "Bash(npm *)", "Bash(pytest *)"]
-  - git/gh操作あり: ["Read", "Glob", "Grep", "Edit", "Bash(git *)", "Bash(gh *)"]
+  - テスト実行あり: ["Read", "Glob", "Grep", "Edit", "Bash(npm:*)", "Bash(pytest:*)"]
+  - git/gh操作あり: ["Read", "Glob", "Grep", "Edit", "Bash(git:*)", "Bash(gh:*)"]
