@@ -174,6 +174,7 @@ scripts/
   run-leader.sh            # Leader全体フロー制御（Phase 1: tasks.json生成、Phase 2: Members独立起動して即終了）
   member-loop.sh           # Member Ralph Loop（コンテキスト記憶付き）
 prompts/
+  owner.md                 # Owner: 役割・コマンド・行動原則
   leader-plan.md           # Leader Phase1: tasks.json生成プロンプト
   leader-summary.md        # Leader Phase3: 完了サマリープロンプト
   member.md                # Member: Ralph Loopプロンプト

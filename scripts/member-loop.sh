@@ -106,8 +106,8 @@ EOF
 
   # 次回イテレーションのためにコンテキストを保存
   printf "=== Iteration %s ===\n%s\n\n" "$i" "$OUTPUT" >> "$CONTEXT_FILE"
-  # スライディングウィンドウ: 直近 ${CONTEXT_WINDOW_LINES:-200} 行のみ保持して肥大化を防ぐ
-  tail -n "${CONTEXT_WINDOW_LINES:-200}" "$CONTEXT_FILE" > "${CONTEXT_FILE}.tmp" && mv "${CONTEXT_FILE}.tmp" "$CONTEXT_FILE"
+  # スライディングウィンドウ: 直近200行のみ保持してコンテキスト肥大化を防ぐ
+  tail -n 200 "$CONTEXT_FILE" > "${CONTEXT_FILE}.tmp" && mv "${CONTEXT_FILE}.tmp" "$CONTEXT_FILE"
 
   if echo "$OUTPUT" | grep -q "<DONE>"; then
     log "DONE detected!"
